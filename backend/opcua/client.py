@@ -7,6 +7,7 @@ use to drive Execute/Stop/Reset.
 from __future__ import annotations
 
 import asyncio
+import inspect
 from typing import Awaitable, Callable
 
 from asyncua import Client, ua
@@ -52,9 +53,9 @@ class _SubscriptionHandler:
         self._path_by_node_id = path_by_node_id
         self._on_change = on_change
 
-    def datachange_notification(self, node: "ua.uaprotocol_auto.Node", val: object, data: object) -> None:
+    async def datachange_notification(self, node: "ua.uaprotocol_auto.Node", val: object, data: object) -> None:
         path = self._path_by_node_id.get(node.nodeid.to_string(), str(node))
-        self._on_change(path, val)
+        await self._on_change(path, val)
 
 
 class PlcOpcuaClient:
@@ -96,11 +97,13 @@ class PlcOpcuaClient:
             node.nodeid.to_string(): path for node, path in zip(nodes, SUBSCRIBED_PATHS)
         }
 
-        def _dispatch(path: str, value: object) -> None:
+        async def _dispatch(path: str, value: object) -> None:
             if path == "Robot.Command.Ack":
                 self._last_ack = bool(value)
                 self._ack_event.set()
-            on_change(path, value)
+            result = on_change(path, value)
+            if inspect.isawaitable(result):
+                await result
 
         handler = _SubscriptionHandler(path_by_node_id, _dispatch)
         self._subscription = await self.client.create_subscription(period_ms, handler)
