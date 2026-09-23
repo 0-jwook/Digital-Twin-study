@@ -1,14 +1,24 @@
 """OPC UA Client wrapper for talking to the Virtual PLC's (or a real PLC's)
-OPC UA Server, per docs/opcua-nodes.md. Generic connection/read/write/
-subscription mechanics only -- the command handshake stepper and REST/WS
-wiring are added in later phases.
+OPC UA Server, per docs/opcua-nodes.md. Connection/read/write/subscription
+mechanics, plus the 4-phase command handshake stepper Backend REST handlers
+use to drive Execute/Stop/Reset.
 """
 
 from __future__ import annotations
 
+import asyncio
 from typing import Awaitable, Callable
 
 from asyncua import Client, ua
+
+
+class CommandInFlightError(RuntimeError):
+    """Raised when a new command is requested while a previous command's
+    Ack/Busy handshake has not fully completed yet."""
+
+
+class CommandTimeoutError(RuntimeError):
+    """Raised when the PLC does not Ack (or clear Ack) within the timeout."""
 
 NAMESPACE_URI = "urn:digitaltwin:mycobot:plc"
 
@@ -53,6 +63,9 @@ class PlcOpcuaClient:
         self.client = Client(endpoint)
         self.nsidx: int | None = None
         self._subscription = None
+        self._command_lock = asyncio.Lock()
+        self._ack_event = asyncio.Event()
+        self._last_ack = False
 
     async def connect(self) -> None:
         await self.client.connect()
@@ -82,7 +95,45 @@ class PlcOpcuaClient:
         path_by_node_id = {
             node.nodeid.to_string(): path for node, path in zip(nodes, SUBSCRIBED_PATHS)
         }
-        handler = _SubscriptionHandler(path_by_node_id, on_change)
+
+        def _dispatch(path: str, value: object) -> None:
+            if path == "Robot.Command.Ack":
+                self._last_ack = bool(value)
+                self._ack_event.set()
+            on_change(path, value)
+
+        handler = _SubscriptionHandler(path_by_node_id, _dispatch)
         self._subscription = await self.client.create_subscription(period_ms, handler)
         await self._subscription.subscribe_data_change(nodes)
         return self._subscription
+
+    async def write_command(
+        self, trigger_path: str, sequence_id: int | None = None, timeout: float = 2.0
+    ) -> None:
+        """Drive the 4-phase Ack handshake (docs/opcua-nodes.md) for one of
+        Robot.Command.{Execute,Stop,Reset}. Only one handshake may be in
+        flight at a time -- the PLC serializes all three through one shared
+        Ack/Busy pair, so Backend must too."""
+        if self._command_lock.locked():
+            raise CommandInFlightError("Another command handshake is already in progress")
+        async with self._command_lock:
+            if sequence_id is not None:
+                await self.write("Robot.Command.SequenceId", sequence_id, ua.VariantType.Int32)
+            self._ack_event.clear()
+            await self.write(trigger_path, True)
+            await self._wait_for_ack(True, timeout)
+            await self.write(trigger_path, False)
+            await self._wait_for_ack(False, timeout)
+
+    async def _wait_for_ack(self, expected: bool, timeout: float) -> None:
+        loop = asyncio.get_event_loop()
+        deadline = loop.time() + timeout
+        while self._last_ack != expected:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                raise CommandTimeoutError(f"Timed out waiting for Command.Ack == {expected}")
+            self._ack_event.clear()
+            try:
+                await asyncio.wait_for(self._ack_event.wait(), timeout=remaining)
+            except asyncio.TimeoutError as exc:
+                raise CommandTimeoutError(f"Timed out waiting for Command.Ack == {expected}") from exc
