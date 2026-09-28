@@ -39,19 +39,24 @@ SEQUENCE_TABLE: dict[int, Sequence] = {
         sequence_id=1,
         name="pick_and_place",
         steps=[
-            SequenceStep("approach", _pose(j1=0, j2=-20, j3=20), 40),
-            SequenceStep("descend", _pose(j1=0, j2=-40, j3=45), 20),
-            SequenceStep("grip", _pose(j1=0, j2=-40, j3=45), 15),
-            SequenceStep("lift", _pose(j1=0, j2=-20, j3=20), 30),
-            SequenceStep("move_to_place", _pose(j1=45, j2=-20, j3=20), 40),
-            SequenceStep("release", _pose(j1=45, j2=-40, j3=45), 15),
-            SequenceStep("retract", _pose(j1=45, j2=-20, j3=20), 30),
+            SequenceStep("approach", _pose(j1=0, j2=-20, j3=-20, j4=-15, j5=-10), 40),
+            SequenceStep("descend", _pose(j1=0, j2=-40, j3=-45, j4=-20, j5=-15), 20),
+            SequenceStep("grip", _pose(j1=0, j2=-40, j3=-45, j4=-20, j5=-15, j6=30), 15),
+            SequenceStep("lift", _pose(j1=0, j2=-20, j3=-20, j4=-15, j5=-10, j6=30), 30),
+            SequenceStep("move_to_place", _pose(j1=45, j2=-20, j3=-20, j4=-15, j5=-10, j6=30), 40),
+            SequenceStep("release", _pose(j1=45, j2=-40, j3=-45, j4=-20, j5=-15), 15),
+            SequenceStep("retract", _pose(j1=45, j2=-20, j3=-20), 30),
         ],
     ),
     2: Sequence(
         sequence_id=2,
         name="home",
-        steps=[SequenceStep("go_home", _pose(), 30)],
+        steps=[SequenceStep("go_home", _pose(j1=90, j2=-90, j3=90, j4=90), 30)],
+    ),
+    3: Sequence(
+        sequence_id=3,
+        name="100",
+        steps=[SequenceStep("go_100", _pose(), 30)],
     ),
 }
 

@@ -6,6 +6,7 @@ __pycache__/
 # Node
 node_modules/
 dist/
+*.tsbuildinfo
 
 # Editor / OS
 .DS_Store

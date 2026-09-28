@@ -1,34 +1,50 @@
-import * as THREE from "three";
+import { SceneManager } from "./scene/SceneManager";
+import { RobotModel } from "./robot/RobotModel";
+import { PositionBuffer } from "./network/PositionBuffer";
+import { WebSocketClient } from "./network/WebSocketClient";
+import { RestClient } from "./network/RestClient";
+import { connectionStore } from "./network/ConnectionStore";
+import { plcStateStore } from "./plc/PlcStateStore";
+import { sequenceStateStore } from "./plc/SequenceStateStore";
+import { mountStatusPanel } from "./plc/StatusPanel";
+import { mountSequencePanel } from "./sequence/SequencePanel";
 
-const container = document.getElementById("app")!;
+const appContainer = document.getElementById("app")!;
+const statusContainer = document.getElementById("status-panel")!;
+const sequenceContainer = document.getElementById("sequence-panel")!;
 
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(
-  60,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  100,
-);
-camera.position.set(2, 2, 2);
-camera.lookAt(0, 0, 0);
+const sceneManager = new SceneManager(appContainer);
+const robotModel = new RobotModel();
+const positionBuffer = new PositionBuffer();
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-container.appendChild(renderer.domElement);
+const statusPanel = mountStatusPanel(statusContainer);
+void mountSequencePanel(sequenceContainer);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-const light = new THREE.DirectionalLight(0xffffff, 0.8);
-light.position.set(3, 5, 2);
-scene.add(light);
-
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+robotModel.load(sceneManager.scene, () => {
+  console.log("myCobot 280 Pi model loaded");
 });
 
-function animate() {
+const wsClient = new WebSocketClient(positionBuffer);
+wsClient.connect();
+
+// One-shot REST snapshot so the HUD isn't blank before the first WebSocket
+// full_status arrives (e.g. on a page refresh mid-session).
+RestClient.getStatus()
+  .then((status) => {
+    plcStateStore.set(status.plc);
+    sequenceStateStore.set(status.sequence);
+    connectionStore.set(status.connection);
+    positionBuffer.push(status.position);
+  })
+  .catch(() => {
+    // The WebSocket's full_status message will arrive shortly regardless.
+  });
+
+function animate(): void {
   requestAnimationFrame(animate);
-  renderer.render(scene, camera);
+  const angles = positionBuffer.getInterpolated();
+  robotModel.setJointAngles(angles);
+  statusPanel.updateJoints(angles);
+  sceneManager.render();
 }
 animate();
