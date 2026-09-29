@@ -81,11 +81,26 @@
       #seq-stop { color: #e0574d; }
       #seq-reset { color: #e0b04d; }
       #sequence-panel .error { align-self: center; }
+
+      #connection-banner {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        padding: 8px 16px;
+        background: #e0574d;
+        color: #1a0d0b;
+        font-size: 12px;
+        font-weight: 700;
+        text-align: center;
+      }
+      #connection-banner[hidden] { display: none; }
     </style>
   </head>
   <body>
     <div id="app"></div>
     <div id="hud">
+      <div id="connection-banner" hidden></div>
       <div id="status-panel"></div>
       <div id="sequence-panel"></div>
     </div>

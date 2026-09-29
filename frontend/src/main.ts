@@ -12,6 +12,17 @@ import { mountSequencePanel } from "./sequence/SequencePanel";
 const appContainer = document.getElementById("app")!;
 const statusContainer = document.getElementById("status-panel")!;
 const sequenceContainer = document.getElementById("sequence-panel")!;
+const connectionBanner = document.getElementById("connection-banner")!;
+
+connectionStore.subscribe((state) => {
+  if (state.connected) {
+    connectionBanner.hidden = true;
+    return;
+  }
+  const lastSeen = state.lastSeen ? new Date(state.lastSeen).toLocaleTimeString() : "-";
+  connectionBanner.textContent = `연결 끊김 — 마지막 확인 시각 ${lastSeen} (마지막 자세로 고정됨)`;
+  connectionBanner.hidden = false;
+});
 
 const sceneManager = new SceneManager(appContainer);
 const robotModel = new RobotModel();

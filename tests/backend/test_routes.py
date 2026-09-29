@@ -51,6 +51,7 @@ def env():
     robot_state = RobotStateModel()
     sequence_state = SequenceStateModel()
     connection_state = ConnectionStateModel()
+    connection_state.mark_seen()  # tests default to "connected" -- disconnect is tested explicitly
     catalog = FakeCatalog(SAMPLE_CATALOG)
     client = FakeClient()
 
@@ -125,6 +126,14 @@ def test_start_sequence_timeout_503(env):
     env["opcua_client"].raise_error = CommandTimeoutError("timeout")
     resp = env["client"].post("/api/sequence/start", json={"sequenceId": 1})
     assert resp.status_code == 503
+
+
+def test_start_sequence_disconnected_503(env):
+    env["robot_state"].status = 0
+    env["connection_state"].mark_disconnected()
+    resp = env["client"].post("/api/sequence/start", json={"sequenceId": 1})
+    assert resp.status_code == 503
+    assert env["opcua_client"].calls == []  # never even attempted the write
 
 
 def test_stop_sequence_success(env):

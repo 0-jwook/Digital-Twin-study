@@ -42,11 +42,14 @@ def get_connection_state(request: Request) -> ConnectionStateModel:
 
 
 def get_opcua_client(request: Request) -> PlcOpcuaClient:
-    return request.app.state.opcua_client
+    # Sourced from the supervisor (not a static app.state field) so a
+    # reconnect transparently swaps in the fresh client for every request
+    # that comes after it (docs/architecture.md section 3).
+    return request.app.state.supervisor.client
 
 
 def get_sequence_catalog(request: Request) -> SequenceCatalog:
-    return request.app.state.sequence_catalog
+    return request.app.state.supervisor.sequence_catalog
 
 
 async def _write_command_or_raise(
@@ -85,9 +88,12 @@ async def get_sequence(sequence_id: int, catalog: SequenceCatalog = Depends(get_
 async def start_sequence(
     body: StartSequenceRequest,
     robot_state: RobotStateModel = Depends(get_robot_state),
+    connection_state: ConnectionStateModel = Depends(get_connection_state),
     catalog: SequenceCatalog = Depends(get_sequence_catalog),
     client: PlcOpcuaClient = Depends(get_opcua_client),
 ):
+    if not connection_state.connected:
+        raise HTTPException(status_code=503, detail="OPC UA connection to Virtual PLC is down")
     if await catalog.get(body.sequenceId) is None:
         raise HTTPException(status_code=404, detail=f"Unknown sequenceId {body.sequenceId}")
     if robot_state.status_name != "IDLE":
@@ -100,8 +106,11 @@ async def start_sequence(
 @router.post("/sequence/stop", response_model=AcceptedResponse, status_code=202)
 async def stop_sequence(
     robot_state: RobotStateModel = Depends(get_robot_state),
+    connection_state: ConnectionStateModel = Depends(get_connection_state),
     client: PlcOpcuaClient = Depends(get_opcua_client),
 ):
+    if not connection_state.connected:
+        raise HTTPException(status_code=503, detail="OPC UA connection to Virtual PLC is down")
     if robot_state.status_name != "RUNNING":
         raise HTTPException(status_code=409, detail=f"No sequence running (current: {robot_state.status_name})")
 
@@ -112,8 +121,11 @@ async def stop_sequence(
 @router.post("/sequence/reset", response_model=AcceptedResponse, status_code=202)
 async def reset_sequence(
     robot_state: RobotStateModel = Depends(get_robot_state),
+    connection_state: ConnectionStateModel = Depends(get_connection_state),
     client: PlcOpcuaClient = Depends(get_opcua_client),
 ):
+    if not connection_state.connected:
+        raise HTTPException(status_code=503, detail="OPC UA connection to Virtual PLC is down")
     if robot_state.status_name not in ("STOPPED", "ERROR"):
         raise HTTPException(
             status_code=409, detail=f"PLC is not STOPPED/ERROR (current: {robot_state.status_name})"

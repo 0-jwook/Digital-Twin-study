@@ -13,10 +13,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from .api.routes import router
-from .opcua.client import PlcOpcuaClient
+from .opcua.supervisor import ConnectionSupervisor
 from .state.connection_state import ConnectionStateModel
 from .state.robot_state import RobotStateModel
-from .state.sequence_catalog import SequenceCatalog
 from .state.sequence_state import SequenceStateModel
 from .websocket.manager import WebSocketManager
 from .websocket.messages import (
@@ -79,29 +78,33 @@ async def lifespan(app: FastAPI):
     robot_state = RobotStateModel()
     sequence_state = SequenceStateModel()
     connection_state = ConnectionStateModel()
-    client = PlcOpcuaClient(OPCUA_ENDPOINT)
-    catalog = SequenceCatalog(client)
     ws_manager = WebSocketManager()
 
-    await client.connect()
     # Subscription publish interval must be at or below the PLC's own scan
     # period (50ms/20Hz, docs/architecture.md section 8) so the OPC UA layer
     # is never the bottleneck ahead of the WebSocket's 25Hz position cap.
-    await client.subscribe(
-        _make_on_change(robot_state, sequence_state, connection_state, ws_manager), period_ms=50
+    # The supervisor owns the OPC UA client/catalog and transparently swaps
+    # them for fresh ones if the connection drops and comes back
+    # (docs/architecture.md section 3).
+    supervisor = ConnectionSupervisor(
+        OPCUA_ENDPOINT,
+        robot_state,
+        sequence_state,
+        connection_state,
+        ws_manager,
+        _make_on_change(robot_state, sequence_state, connection_state, ws_manager),
     )
-    connection_state.mark_seen()
+    await supervisor.start()
 
     app.state.robot_state = robot_state
     app.state.sequence_state = sequence_state
     app.state.connection_state = connection_state
-    app.state.opcua_client = client
-    app.state.sequence_catalog = catalog
     app.state.ws_manager = ws_manager
+    app.state.supervisor = supervisor
 
     yield
 
-    await client.disconnect()
+    await supervisor.stop()
 
 
 app = FastAPI(title="digital-twin-backend", lifespan=lifespan)
