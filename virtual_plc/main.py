@@ -15,7 +15,8 @@ from .opcua.server import PlcOpcuaServer, StateSnapshot
 from .plc.memory import PLCMemory
 from .plc.scan import run_scan_tick
 from .plc.state_machine import TickEvents
-from .robot.interface import RobotInterface, VirtualRobotInterface
+from .robot.config import create_robot_interface
+from .robot.interface import RobotInterface
 from .robot.state import RobotState
 from .sequence.manager import build_catalog_json
 
@@ -68,8 +69,10 @@ async def main() -> None:
         await server.write_catalog_json(build_catalog_json())
 
         memory = PLCMemory()
-        robot = VirtualRobotInterface()
-        robot.connect()
+        robot = create_robot_interface()  # virtual by default; ROBOT_MODE=real + MYCOBOT_HOST switches it
+        connected = robot.connect()
+        if not connected:
+            log.warning("Robot Interface failed to connect on startup -- continuing, will report via State.RobotConnected")
         robot_state = RobotState()
 
         try:

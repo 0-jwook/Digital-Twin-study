@@ -1,0 +1,4 @@
+# Only needed when running with ROBOT_MODE=real (see docs/architecture.md
+# section 4). The default virtual-robot mode needs none of this --
+# requirements.txt stays asyncua-only.
+pymycobot>=3.6

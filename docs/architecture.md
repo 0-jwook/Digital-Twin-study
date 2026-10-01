@@ -153,9 +153,37 @@ stop() -> None   # 예약됨. 일반 Stop 흐름(현재 Step 완료 후 정지)�
 MVP 구현은 `VirtualRobotInterface`(시간 기반 관절 보간): `move_to()` 호출 시
 관절별 delta와 `speed%`·최대 delta로 duration을 계산해 시작 포즈/목표 포즈/시작
 시각을 기록하고, `get_current_position()`은 경과 시간 비율로 보간, `is_at_target()`은
-경과 시간이 duration 이상이면 True. 실로봇용 `RealMycobotInterface`(pymycobot
-기반)는 이번 설계·구현 범위에 포함하지 않으며, 이 인터페이스를 그대로 구현해
-교체하는 것으로 설계되어 있다.
+경과 시간이 duration 이상이면 True.
+
+**`RealMycobotInterface`(실로봇, Phase 7 이후 추가)** — 같은 `RobotInterface`를
+그대로 구현하며, `plc/scan.py`·`sequence/manager.py`는 전혀 수정하지 않는다.
+
+- **연결 방식**: myCobot 280 Pi는 로봇 밑판의 내장 라즈베리파이 위에서
+  Elephant Robotics가 제공하는 `Server_280.py`가 이미 시리얼 포트
+  (`/dev/ttyAMA0`, 1,000,000bps)를 독점 사용 중이므로, `virtual_plc`가 그
+  Pi로 옮겨갈 필요 없이 **TCP(`pymycobot.MyCobot280Socket(host, 9000)`)로
+  네트워크 연결**한다. `Server_280.py`가 Pi에서 먼저 실행 중이어야 한다
+  ([Elephant Robotics TCP/IP 가이드](https://docs.elephantrobotics.com/docs/mycobot_280_jn_en/3-FunctionsAndApplications/6.developmentGuide/python/7_TCPIP.html)).
+- **명령/상태 매핑**: `move_to()`→`send_angles(angles_list, speed)`,
+  `get_current_position()`→`get_angles()`. 도착 판정은 `is_moving()`이 아니라
+  `is_in_position(target, 0)`을 쓴다 — `is_moving()`은 "항상 이동 중으로
+  오보고하는" 알려진 신뢰성 문제가 있다
+  ([pymycobot issue #2](https://github.com/elephantrobotics/pymycobot/issues/2)).
+- **안전장치(사용자 요청)**: ① `MYCOBOT_MAX_SPEED`로 속도 상한을 걸어 Sequence가
+  더 높은 speed를 요청해도 clamp. ② 가상↔실물 전환은 `virtual_plc/robot/config.py`의
+  `create_robot_interface()`가 전적으로 담당하며, **`ROBOT_MODE=real`과
+  `MYCOBOT_HOST`를 둘 다 명시적으로 설정해야만** 실로봇으로 전환된다 — 기본값은
+  항상 가상 로봇이고, 둘 중 하나라도 없으면 즉시 에러로 멈춘다(조용히 다른 쪽으로
+  빠지지 않음).
+- **통신 장애 처리**: `pymycobot` 호출은 전부 try/except로 감싸 예외를
+  `is_connected()=False`로만 드러낸다 — 이미 있는
+  `sequence/manager.tick()`의 `ErrorCode.ROBOT_DISCONNECTED` 폴트 경로를 그대로
+  탄다, 추가 코드 불필요.
+- **검증 상태**: 위 내용은 Elephant Robotics 공식 문서/GitHub 기준으로 구현했고
+  모킹 기반 단위테스트(`tests/virtual_plc/test_real_interface.py`,
+  `test_robot_config.py`)로 래퍼 로직(속도 clamp, 관절 순서 변환, 예외 처리)만
+  검증했다. **실제 로봇으로는 아직 검증하지 못했다** — 처음 실물 연결 시
+  `MYCOBOT_MAX_SPEED`를 낮게 두고 `home` 같은 단순 Sequence부터 확인할 것.
 
 ### 스캔 주기
 
