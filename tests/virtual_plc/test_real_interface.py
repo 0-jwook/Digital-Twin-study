@@ -27,6 +27,7 @@ class FakeMyCobot280Socket:
         self.angles = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         self.fail = FakeMyCobot280Socket.fail_on_init
         self.in_position = True
+        self.closed = False
         FakeMyCobot280Socket.instances.append(self)
 
     def get_angles(self):
@@ -46,6 +47,11 @@ class FakeMyCobot280Socket:
         return 1 if self.in_position else 0
 
     def stop(self):
+        if self.fail:
+            raise ConnectionError("comm failure")
+
+    def close(self):
+        self.closed = True
         if self.fail:
             raise ConnectionError("comm failure")
 
@@ -155,6 +161,33 @@ def test_communication_failure_marks_disconnected_without_raising():
     robot._connected = True  # re-arm so is_at_target's own failure is what we're isolating
     robot._last_target = {"j1": 0, "j2": 0, "j3": 0, "j4": 0, "j5": 0, "j6": 0}
     assert robot.is_at_target() is False  # can't confirm arrival -> treated as "not yet"
+    assert robot.is_connected() is False
+
+
+def test_disconnect_closes_the_socket():
+    robot = RealMycobotInterface("10.0.0.5")
+    robot.connect()
+    fake = FakeMyCobot280Socket.instances[-1]
+
+    robot.disconnect()
+
+    assert fake.closed is True
+    assert robot.is_connected() is False
+
+
+def test_disconnect_before_connect_does_not_raise():
+    robot = RealMycobotInterface("10.0.0.5")
+    robot.disconnect()  # never connected -- self._mc is still None
+    assert robot.is_connected() is False
+
+
+def test_disconnect_swallows_close_failure():
+    robot = RealMycobotInterface("10.0.0.5")
+    robot.connect()
+    FakeMyCobot280Socket.instances[-1].fail = True
+
+    robot.disconnect()  # must not raise even if close() itself fails
+
     assert robot.is_connected() is False
 
     robot.stop()  # must not raise either

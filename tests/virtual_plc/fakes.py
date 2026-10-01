@@ -42,3 +42,6 @@ class FakeRobotInterface:
 
     def stop(self) -> None:
         pass
+
+    def disconnect(self) -> None:
+        self.connected = False

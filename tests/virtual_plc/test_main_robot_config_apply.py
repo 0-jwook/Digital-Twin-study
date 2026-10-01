@@ -14,10 +14,14 @@ class FakeRobot:
     def __init__(self, succeed: bool) -> None:
         self.succeed = succeed
         self.connect_called = False
+        self.disconnect_called = False
 
     def connect(self) -> bool:
         self.connect_called = True
         return self.succeed
+
+    def disconnect(self) -> None:
+        self.disconnect_called = True
 
 
 async def test_apply_switches_robot_on_successful_connect(monkeypatch):
@@ -33,6 +37,8 @@ async def test_apply_switches_robot_on_successful_connect(monkeypatch):
 
     assert result is new_robot
     assert new_robot.connect_called is True
+    assert old_robot.disconnect_called is True  # released once the switch is confirmed
+    assert new_robot.disconnect_called is False
     assert memory.config.active_mode == "virtual"
     assert memory.config.connection_ok is True
     assert memory.config.error_message == ""
@@ -50,6 +56,7 @@ async def test_apply_keeps_old_robot_on_connect_failure(monkeypatch):
     result = await _apply_robot_config(old_robot, memory, event)
 
     assert result is old_robot
+    assert old_robot.disconnect_called is False  # still in use -- must not be torn down
     assert memory.config.connection_ok is False
     assert "connect" in memory.config.error_message.lower()
 
@@ -67,5 +74,6 @@ async def test_apply_keeps_old_robot_when_build_raises(monkeypatch):
     result = await _apply_robot_config(old_robot, memory, event)
 
     assert result is old_robot
+    assert old_robot.disconnect_called is False  # still in use -- must not be torn down
     assert memory.config.connection_ok is False
     assert "host" in memory.config.error_message

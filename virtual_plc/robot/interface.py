@@ -19,6 +19,7 @@ class RobotInterface(Protocol):
     def is_at_target(self) -> bool: ...
     def is_connected(self) -> bool: ...
     def stop(self) -> None: ...
+    def disconnect(self) -> None: ...  # release the connection (e.g. close a socket) before being discarded
 
 
 class VirtualRobotInterface:
@@ -70,3 +71,6 @@ class VirtualRobotInterface:
 
     def stop(self) -> None:
         pass  # reserved -- normal Stop flow lets the current move finish
+
+    def disconnect(self) -> None:
+        pass  # nothing to release -- no real connection underneath

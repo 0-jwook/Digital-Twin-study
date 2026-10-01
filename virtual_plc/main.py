@@ -51,6 +51,11 @@ async def _apply_robot_config(
         log.warning("Robot Config apply failed to connect (mode=%s)", event.mode)
         return current_robot
 
+    # Only release the old interface's connection once the new one is
+    # confirmed working -- on failure above, current_robot stays in use and
+    # must not be torn down.
+    await asyncio.to_thread(current_robot.disconnect)
+
     memory.config.active_mode = event.mode
     memory.config.connection_ok = True
     memory.config.error_message = ""
@@ -66,48 +71,54 @@ async def scan_loop(
     scan_period_seconds: float,
 ) -> None:
     tick_events = TickEvents()
-    while True:
-        command = await server.read_command_memory()
-        memory.command.sequence_id = command.sequence_id
-        memory.command.execute = command.execute
-        memory.command.stop = command.stop
-        memory.command.reset = command.reset
+    try:
+        while True:
+            command = await server.read_command_memory()
+            memory.command.sequence_id = command.sequence_id
+            memory.command.execute = command.execute
+            memory.command.stop = command.stop
+            memory.command.reset = command.reset
 
-        config_command = await server.read_config_memory()
-        memory.config.mode = config_command.mode
-        memory.config.host = config_command.host
-        memory.config.port = config_command.port
-        memory.config.max_speed = config_command.max_speed
-        memory.config.apply = config_command.apply
+            config_command = await server.read_config_memory()
+            memory.config.mode = config_command.mode
+            memory.config.host = config_command.host
+            memory.config.port = config_command.port
+            memory.config.max_speed = config_command.max_speed
+            memory.config.apply = config_command.apply
 
-        config_event = config_processor.process(memory, Status(memory.state.status))
-        if config_event is not None:
-            robot = await _apply_robot_config(robot, memory, config_event)
+            config_event = config_processor.process(memory, Status(memory.state.status))
+            if config_event is not None:
+                robot = await _apply_robot_config(robot, memory, config_event)
 
-        tick_events = run_scan_tick(memory, robot, robot_state, tick_events)
+            tick_events = run_scan_tick(memory, robot, robot_state, tick_events)
 
-        await server.write_state_nodes(
-            StateSnapshot(
-                status=memory.state.status,
-                error_code=memory.state.error_code,
-                error_message=memory.state.error_message,
-                robot_connected=memory.state.robot_connected,
-                current_sequence_id=memory.sequence.current_sequence_id,
-                current_step=memory.sequence.current_step,
-                total_steps=memory.sequence.total_steps,
-                running=memory.sequence.running,
-                done=memory.sequence.done,
-                position=memory.position.as_dict(),
-                ack=memory.command.ack,
-                busy=memory.command.busy,
-                config_ack=memory.config.ack,
-                config_active_mode=memory.config.active_mode,
-                config_connection_ok=memory.config.connection_ok,
-                config_error_message=memory.config.error_message,
+            await server.write_state_nodes(
+                StateSnapshot(
+                    status=memory.state.status,
+                    error_code=memory.state.error_code,
+                    error_message=memory.state.error_message,
+                    robot_connected=memory.state.robot_connected,
+                    current_sequence_id=memory.sequence.current_sequence_id,
+                    current_step=memory.sequence.current_step,
+                    total_steps=memory.sequence.total_steps,
+                    running=memory.sequence.running,
+                    done=memory.sequence.done,
+                    position=memory.position.as_dict(),
+                    ack=memory.command.ack,
+                    busy=memory.command.busy,
+                    config_ack=memory.config.ack,
+                    config_active_mode=memory.config.active_mode,
+                    config_connection_ok=memory.config.connection_ok,
+                    config_error_message=memory.config.error_message,
+                )
             )
-        )
 
-        await asyncio.sleep(scan_period_seconds)
+            await asyncio.sleep(scan_period_seconds)
+    finally:
+        # `robot` may have been swapped (Robot.Config.Apply) since this loop
+        # started -- disconnect whichever one is actually active now, not
+        # the one scan_loop() was originally called with.
+        robot.disconnect()
 
 
 async def main() -> None:

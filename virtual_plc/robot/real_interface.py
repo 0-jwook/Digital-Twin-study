@@ -87,3 +87,15 @@ class RealMycobotInterface:
             self._mc.stop()
         except Exception:
             pass
+
+    def disconnect(self) -> None:
+        # Called when this interface is being swapped out (Robot.Config.Apply
+        # switched to a different mode/host) so the TCP socket to Server_280.py
+        # doesn't linger until garbage collection happens to close it.
+        self._connected = False
+        if self._mc is None:
+            return
+        try:
+            self._mc.close()
+        except Exception:
+            pass
