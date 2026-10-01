@@ -5,15 +5,20 @@ import { robotConfigStore } from "./RobotConfigStore";
 
 export async function mountRobotConfigPanel(container: HTMLElement): Promise<void> {
   container.innerHTML = `
-    <select id="rc-mode">
-      <option value="virtual">virtual</option>
-      <option value="real">real</option>
-    </select>
-    <input id="rc-host" type="text" placeholder="host (e.g. 172.20.10.14)" />
-    <input id="rc-port" type="number" placeholder="port" />
-    <input id="rc-maxspeed" type="number" placeholder="max speed" />
-    <button id="rc-apply">APPLY</button>
-    <span id="rc-active"></span>
+    <div class="panel-head">
+      <span class="panel-title">Robot Interface</span>
+      <span id="rc-active" class="chip"></span>
+    </div>
+    <div class="rc-grid">
+      <select id="rc-mode">
+        <option value="virtual">Virtual</option>
+        <option value="real">Real Hardware</option>
+      </select>
+      <input id="rc-host" type="text" placeholder="Host (e.g. 172.20.10.14)" />
+      <input id="rc-port" type="number" placeholder="Port" />
+      <input id="rc-maxspeed" type="number" placeholder="Max speed" />
+      <button id="rc-apply" class="btn btn-apply">Apply</button>
+    </div>
     <span id="rc-error" class="error"></span>
   `;
 
@@ -42,7 +47,7 @@ export async function mountRobotConfigPanel(container: HTMLElement): Promise<voi
 
     const okText = config.connectionOk ? "OK" : `FAILED${config.errorMessage ? `: ${config.errorMessage}` : ""}`;
     activeEl.textContent = `active=${config.activeMode} (${okText})`;
-    activeEl.className = `value ${config.connectionOk ? "ok" : "bad"}`;
+    activeEl.className = `chip ${config.connectionOk ? "ok" : "bad"}`;
   });
 
   function updateDisabled(): void {

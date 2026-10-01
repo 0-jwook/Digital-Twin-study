@@ -16,14 +16,19 @@ export class SceneManager {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(this.renderer.domElement);
 
-    this.scene.background = new THREE.Color(0x14171b);
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    this.scene.background = new THREE.Color(0x0a0c11);
+    this.scene.fog = new THREE.Fog(0x0a0c11, 2, 6);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.65));
 
-    const key = new THREE.DirectionalLight(0xffffff, 0.9);
+    const key = new THREE.DirectionalLight(0xffffff, 0.95);
     key.position.set(0.5, 1, 0.4);
     this.scene.add(key);
 
-    const grid = new THREE.GridHelper(1, 20, 0x4a5058, 0x2a2e34);
+    const rim = new THREE.DirectionalLight(0x4fd1c5, 0.25);
+    rim.position.set(-0.6, 0.3, -0.5);
+    this.scene.add(rim);
+
+    const grid = new THREE.GridHelper(1, 20, 0x3a4350, 0x1b1f27);
     this.scene.add(grid);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);

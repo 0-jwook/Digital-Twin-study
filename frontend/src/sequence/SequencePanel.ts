@@ -5,9 +5,9 @@ import { plcStateStore } from "../plc/PlcStateStore";
 export async function mountSequencePanel(container: HTMLElement): Promise<void> {
   container.innerHTML = `
     <select id="seq-select"></select>
-    <button id="seq-start">START</button>
-    <button id="seq-stop">STOP</button>
-    <button id="seq-reset">RESET</button>
+    <button id="seq-start" class="btn btn-start"><span class="btn-icon">▶</span>Start</button>
+    <button id="seq-stop" class="btn btn-stop"><span class="btn-icon">■</span>Stop</button>
+    <button id="seq-reset" class="btn btn-reset"><span class="btn-icon">↺</span>Reset</button>
     <span id="seq-error" class="error"></span>
   `;
 

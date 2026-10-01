@@ -9,9 +9,10 @@ export interface StatusPanelHandle {
 
 export function mountStatusPanel(container: HTMLElement): StatusPanelHandle {
   container.innerHTML = `
-    <div class="status-row"><span class="label">CONNECTION</span><span id="sp-conn" class="value"></span></div>
-    <div class="status-row"><span class="label">PLC</span><span id="sp-status" class="value"></span></div>
-    <div class="status-row"><span class="label">STEP</span><span id="sp-step" class="value">-</span></div>
+    <div class="panel-head"><span class="panel-title">System Status</span></div>
+    <div class="status-row"><span class="label">Connection</span><span id="sp-conn" class="value"></span></div>
+    <div class="status-row"><span class="label">PLC State</span><span id="sp-status" class="value"></span></div>
+    <div class="status-row"><span class="label">Step</span><span id="sp-step" class="value">-</span></div>
     <div class="joint-grid" id="sp-joints"></div>
     <div id="sp-error" class="error"></div>
   `;
