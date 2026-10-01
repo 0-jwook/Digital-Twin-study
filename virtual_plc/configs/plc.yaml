@@ -1,0 +1,5 @@
+# PLC / OPC UA Server operational settings. scan_period_seconds and
+# opcua_endpoint can be overridden by SCAN_PERIOD_SECONDS / OPCUA_ENDPOINT
+# environment variables.
+scan_period_seconds: 0.05
+opcua_endpoint: "opc.tcp://0.0.0.0:4840/digitaltwin/plc/"

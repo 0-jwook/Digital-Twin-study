@@ -12,6 +12,8 @@ from typing import Awaitable, Callable
 
 from asyncua import Client, ua
 
+from ..constants.opcua import NAMESPACE_URI, SUBSCRIBED_PATHS
+
 
 class CommandInFlightError(RuntimeError):
     """Raised when a new command is requested while a previous command's
@@ -31,39 +33,6 @@ class ConfigTimeoutError(RuntimeError):
     """Raised when the PLC does not Ack (or clear Ack) a Config apply within
     the timeout."""
 
-
-NAMESPACE_URI = "urn:digitaltwin:mycobot:plc"
-
-# Nodes the Backend subscribes to (everything under State/Sequence/Position
-# plus the command and config handshake pairs, excluding the poll-only
-# CatalogJson).
-SUBSCRIBED_PATHS = (
-    "Robot.State.Status",
-    "Robot.State.ErrorCode",
-    "Robot.State.ErrorMessage",
-    "Robot.State.RobotConnected",
-    "Robot.Sequence.CurrentSequenceId",
-    "Robot.Sequence.CurrentStep",
-    "Robot.Sequence.TotalSteps",
-    "Robot.Sequence.Running",
-    "Robot.Sequence.Done",
-    "Robot.Position.J1",
-    "Robot.Position.J2",
-    "Robot.Position.J3",
-    "Robot.Position.J4",
-    "Robot.Position.J5",
-    "Robot.Position.J6",
-    "Robot.Command.Ack",
-    "Robot.Command.Busy",
-    "Robot.Config.Mode",
-    "Robot.Config.Host",
-    "Robot.Config.Port",
-    "Robot.Config.MaxSpeed",
-    "Robot.Config.Ack",
-    "Robot.Config.ActiveMode",
-    "Robot.Config.ConnectionOk",
-    "Robot.Config.ErrorMessage",
-)
 
 DataChangeHandler = Callable[[str, object], Awaitable[None] | None]
 

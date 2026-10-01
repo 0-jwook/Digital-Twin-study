@@ -1,5 +1,5 @@
 from virtual_plc.plc.command_processor import CommandKind, process
-from virtual_plc.plc.memory import PLCMemory
+from virtual_plc.models.memory import PLCMemory
 from virtual_plc.plc.status import Status
 
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from virtual_plc.main import _apply_robot_config
 from virtual_plc.plc.config_processor import ConfigApplyEvent
-from virtual_plc.plc.memory import PLCMemory
+from virtual_plc.models.memory import PLCMemory
 
 
 class FakeRobot:

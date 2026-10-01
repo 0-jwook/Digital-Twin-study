@@ -1,1 +1,2 @@
 asyncua>=1.1
+pyyaml>=6.0

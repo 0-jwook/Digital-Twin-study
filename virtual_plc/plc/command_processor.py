@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from .memory import PLCMemory
+from ..models.memory import PLCMemory
 from .status import Status
 
 

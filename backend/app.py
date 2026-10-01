@@ -13,6 +13,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from .api.routes import router
+from .configs.config import load_backend_config
+from .configs.logger import get_logger, setup_logging
 from .opcua.supervisor import ConnectionSupervisor
 from .state.connection_state import ConnectionStateModel
 from .state.robot_config_state import RobotConfigState
@@ -28,7 +30,7 @@ from .websocket.messages import (
     sequence_state_message,
 )
 
-OPCUA_ENDPOINT = "opc.tcp://127.0.0.1:4840/digitaltwin/plc/"
+log = get_logger(__name__)
 
 
 def _make_on_change(
@@ -99,6 +101,10 @@ def _make_on_change(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    setup_logging()
+    backend_cfg = load_backend_config()
+    log.info("Backend starting, connecting to Virtual PLC at %s", backend_cfg.opcua_endpoint)
+
     robot_state = RobotStateModel()
     sequence_state = SequenceStateModel()
     connection_state = ConnectionStateModel()
@@ -112,7 +118,7 @@ async def lifespan(app: FastAPI):
     # them for fresh ones if the connection drops and comes back
     # (docs/architecture.md section 3).
     supervisor = ConnectionSupervisor(
-        OPCUA_ENDPOINT,
+        backend_cfg.opcua_endpoint,
         robot_state,
         sequence_state,
         connection_state,
@@ -166,4 +172,5 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    _cfg = load_backend_config()
+    uvicorn.run(app, host=_cfg.host, port=_cfg.port)

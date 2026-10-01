@@ -9,24 +9,24 @@ resolve correctly).
 from __future__ import annotations
 
 import asyncio
-import logging
 
-from .opcua.server import PlcOpcuaServer, StateSnapshot
+from .configs.config import load_plc_config, load_robot_config
+from .configs.logger import get_logger, setup_logging
+from .models.config import PlcConfig
+from .models.memory import PLCMemory
+from .models.opcua_snapshots import StateSnapshot
+from .opcua.server import PlcOpcuaServer
 from .plc import config_processor
 from .plc.config_processor import ConfigApplyEvent
-from .plc.memory import PLCMemory
 from .plc.scan import run_scan_tick
 from .plc.state_machine import TickEvents
 from .plc.status import Status
-from .robot.config import build_robot_interface, create_robot_interface, read_env_config
+from .robot.config import build_robot_interface, create_robot_interface
 from .robot.interface import RobotInterface
 from .robot.state import RobotState
 from .sequence.manager import build_catalog_json
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-log = logging.getLogger("virtual_plc")
-
-SCAN_PERIOD_SECONDS = 0.05  # 50ms / 20Hz
+log = get_logger(__name__)
 
 
 async def _apply_robot_config(
@@ -63,6 +63,7 @@ async def scan_loop(
     memory: PLCMemory,
     robot: RobotInterface,
     robot_state: RobotState,
+    scan_period_seconds: float,
 ) -> None:
     tick_events = TickEvents()
     while True:
@@ -106,27 +107,32 @@ async def scan_loop(
             )
         )
 
-        await asyncio.sleep(SCAN_PERIOD_SECONDS)
+        await asyncio.sleep(scan_period_seconds)
 
 
 async def main() -> None:
+    setup_logging()
     log.info("Virtual PLC starting...")
-    env_cfg = read_env_config()
+
+    robot_cfg = load_robot_config()
+    plc_cfg: PlcConfig = load_plc_config()
+
     async with PlcOpcuaServer(
-        initial_mode=env_cfg.mode,
-        initial_host=env_cfg.host,
-        initial_port=env_cfg.port,
-        initial_max_speed=env_cfg.max_speed,
+        endpoint=plc_cfg.opcua_endpoint,
+        initial_mode=robot_cfg.mode,
+        initial_host=robot_cfg.host,
+        initial_port=robot_cfg.port,
+        initial_max_speed=robot_cfg.max_speed,
     ) as server:
         log.info("OPC UA Server listening on %s", server.endpoint)
         await server.write_catalog_json(build_catalog_json())
 
         memory = PLCMemory()
-        memory.config.mode = env_cfg.mode
-        memory.config.host = env_cfg.host
-        memory.config.port = env_cfg.port
-        memory.config.max_speed = env_cfg.max_speed
-        memory.config.active_mode = env_cfg.mode
+        memory.config.mode = robot_cfg.mode
+        memory.config.host = robot_cfg.host
+        memory.config.port = robot_cfg.port
+        memory.config.max_speed = robot_cfg.max_speed
+        memory.config.active_mode = robot_cfg.mode
 
         robot = create_robot_interface()  # virtual by default; ROBOT_MODE=real + MYCOBOT_HOST switches it
         connected = robot.connect()
@@ -137,7 +143,7 @@ async def main() -> None:
         robot_state = RobotState()
 
         try:
-            await scan_loop(server, memory, robot, robot_state)
+            await scan_loop(server, memory, robot, robot_state, plc_cfg.scan_period_seconds)
         except asyncio.CancelledError:
             log.info("Virtual PLC stopping...")
 

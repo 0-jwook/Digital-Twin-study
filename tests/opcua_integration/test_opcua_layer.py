@@ -17,7 +17,8 @@ import pytest
 from asyncua import ua
 
 from backend.opcua.client import PlcOpcuaClient
-from virtual_plc.opcua.server import PlcOpcuaServer, StateSnapshot
+from virtual_plc.models.opcua_snapshots import StateSnapshot
+from virtual_plc.opcua.server import PlcOpcuaServer
 
 TEST_ENDPOINT = "opc.tcp://127.0.0.1:48401/digitaltwin/plc/"
 

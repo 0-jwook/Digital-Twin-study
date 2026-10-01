@@ -12,10 +12,10 @@ and driving the robot regardless of whether Backend is connected.
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Awaitable, Callable
 
 from .client import PlcOpcuaClient
+from ..configs.logger import get_logger
 from ..state.connection_state import ConnectionStateModel
 from ..state.robot_config_state import RobotConfigState
 from ..state.robot_state import RobotStateModel
@@ -24,7 +24,7 @@ from ..state.sequence_state import SequenceStateModel
 from ..websocket.manager import WebSocketManager
 from ..websocket.messages import connection_status_message, full_status_message
 
-log = logging.getLogger("backend.opcua.supervisor")
+log = get_logger(__name__)
 
 HEALTH_CHECK_INTERVAL_SECONDS = 2.0
 RECONNECT_RETRY_INTERVAL_SECONDS = 2.0

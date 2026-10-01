@@ -1,6 +1,6 @@
 from fakes import FakeRobotInterface
 
-from virtual_plc.plc.memory import PLCMemory
+from virtual_plc.models.memory import PLCMemory
 from virtual_plc.plc.scan import run_scan_tick
 from virtual_plc.plc.state_machine import TickEvents
 from virtual_plc.plc.status import Status

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .memory import PLCMemory
+from ..models.memory import PLCMemory
 from .status import Status
 
 

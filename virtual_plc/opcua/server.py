@@ -7,51 +7,11 @@ PLC scan loop to use. Contains no PLC logic of its own.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from asyncua import Server, ua
 
-NAMESPACE_URI = "urn:digitaltwin:mycobot:plc"
-DEFAULT_ENDPOINT = "opc.tcp://0.0.0.0:4840/digitaltwin/plc/"
-
-JOINTS = ("j1", "j2", "j3", "j4", "j5", "j6")
-
-
-@dataclass
-class CommandSnapshot:
-    sequence_id: int
-    execute: bool
-    stop: bool
-    reset: bool
-
-
-@dataclass
-class StateSnapshot:
-    status: int
-    error_code: int
-    error_message: str
-    robot_connected: bool
-    current_sequence_id: int
-    current_step: int
-    total_steps: int
-    running: bool
-    done: bool
-    position: dict[str, float]
-    ack: bool
-    busy: bool
-    config_ack: bool
-    config_active_mode: str
-    config_connection_ok: bool
-    config_error_message: str
-
-
-@dataclass
-class ConfigCommandSnapshot:
-    mode: str
-    host: str
-    port: int
-    max_speed: int
-    apply: bool
+from ..constants.opcua import DEFAULT_ENDPOINT, NAMESPACE_URI
+from ..constants.robot import JOINTS
+from ..models.opcua_snapshots import CommandSnapshot, ConfigCommandSnapshot, StateSnapshot
 
 
 class PlcOpcuaServer:

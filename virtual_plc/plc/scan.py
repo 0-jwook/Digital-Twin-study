@@ -7,9 +7,9 @@ objects, so it is unit-testable without a running OPC UA server.
 from __future__ import annotations
 
 from .command_processor import CommandKind, process as process_command
-from .memory import PLCMemory
 from .state_machine import TickEvents, transition
 from .status import Status
+from ..models.memory import PLCMemory
 from ..robot.interface import RobotInterface
 from ..robot.state import RobotState
 from ..sequence import manager as sequence_manager

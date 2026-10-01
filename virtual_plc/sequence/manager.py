@@ -6,26 +6,12 @@ speed) never leaves the PLC -- see docs/opcua-nodes.md CatalogJson.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 
-from ..plc.memory import PLCMemory
+from ..models.memory import PLCMemory
+from ..models.sequence import Sequence, SequenceStep
 from ..plc.state_machine import TickEvents
 from ..plc.status import ErrorCode
 from ..robot.interface import RobotInterface
-
-
-@dataclass
-class SequenceStep:
-    name: str
-    joint_targets: dict[str, float]
-    speed: float
-
-
-@dataclass
-class Sequence:
-    sequence_id: int
-    name: str
-    steps: list[SequenceStep]
 
 
 def _pose(**overrides: float) -> dict[str, float]:

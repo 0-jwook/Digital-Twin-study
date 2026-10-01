@@ -9,7 +9,7 @@ from __future__ import annotations
 import time
 from typing import Protocol
 
-JOINTS = ("j1", "j2", "j3", "j4", "j5", "j6")
+from ..constants.robot import JOINTS
 
 
 class RobotInterface(Protocol):

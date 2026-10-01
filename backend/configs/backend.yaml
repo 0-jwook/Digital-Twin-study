@@ -1,0 +1,6 @@
+# Backend deployment settings. Each key can be overridden by its matching
+# environment variable (OPCUA_ENDPOINT, BACKEND_HOST, BACKEND_PORT) without
+# editing this file.
+opcua_endpoint: "opc.tcp://127.0.0.1:4840/digitaltwin/plc/"
+host: "0.0.0.0"
+port: 8000

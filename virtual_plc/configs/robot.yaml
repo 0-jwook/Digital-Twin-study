@@ -1,0 +1,10 @@
+# Robot Interface defaults at process startup. Each key can still be
+# overridden by the matching environment variable (ROBOT_MODE, MYCOBOT_HOST,
+# MYCOBOT_PORT, MYCOBOT_MAX_SPEED) -- useful for Docker/deployment without
+# editing this file. After startup, the Web's Robot Interface panel can
+# change these at runtime (Robot.Config.* over OPC UA); this file only sets
+# where the PLC starts.
+mode: virtual
+host: ""
+port: 9000
+max_speed: 30
