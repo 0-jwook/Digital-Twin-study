@@ -19,11 +19,22 @@ export interface SequenceDetail {
   steps: SequenceStepDto[];
 }
 
+export interface RobotConfigResponse {
+  mode: string;
+  host: string;
+  port: number;
+  maxSpeed: number;
+  activeMode: string;
+  connectionOk: boolean;
+  errorMessage: string | null;
+}
+
 export interface StatusResponse {
   plc: { status: string; errorCode: number; errorMessage: string | null; robotConnected: boolean };
   sequence: { sequenceId: number; currentStep: number; totalSteps: number; running: boolean; done: boolean };
   position: Record<"j1" | "j2" | "j3" | "j4" | "j5" | "j6", number>;
   connection: { connected: boolean; lastSeen: string | null };
+  robotConfig: RobotConfigResponse;
 }
 
 export class ApiError extends Error {
@@ -58,4 +69,10 @@ export const RestClient = {
   stopSequence: () => request<{ accepted: boolean }>("/sequence/stop", { method: "POST" }),
   resetSequence: () => request<{ accepted: boolean }>("/sequence/reset", { method: "POST" }),
   getStatus: () => request<StatusResponse>("/status"),
+  getRobotConfig: () => request<RobotConfigResponse>("/robot-config"),
+  applyRobotConfig: (config: { mode: string; host: string; port: number; maxSpeed: number }) =>
+    request<{ accepted: boolean }>("/robot-config", {
+      method: "POST",
+      body: JSON.stringify(config),
+    }),
 };

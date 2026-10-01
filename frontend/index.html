@@ -62,7 +62,8 @@
         padding: 10px 14px;
         font-size: 12px;
       }
-      #sequence-panel select, #sequence-panel button {
+      #sequence-panel select, #sequence-panel button,
+      #robot-config-panel select, #robot-config-panel input, #robot-config-panel button {
         font-family: inherit;
         font-size: 12px;
         background: #20252b;
@@ -72,15 +73,37 @@
         padding: 6px 10px;
         cursor: pointer;
       }
-      #sequence-panel button:disabled, #sequence-panel select:disabled {
+      #sequence-panel button:disabled, #sequence-panel select:disabled,
+      #robot-config-panel button:disabled, #robot-config-panel select:disabled, #robot-config-panel input:disabled {
         opacity: 0.4;
         cursor: not-allowed;
       }
-      #sequence-panel button:hover:not(:disabled) { border-color: #5fc9bb; }
+      #sequence-panel button:hover:not(:disabled), #robot-config-panel button:hover:not(:disabled) {
+        border-color: #5fc9bb;
+      }
       #seq-start { color: #5fc9bb; }
       #seq-stop { color: #e0574d; }
       #seq-reset { color: #e0b04d; }
       #sequence-panel .error { align-self: center; }
+
+      #robot-config-panel {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(20, 23, 27, 0.85);
+        border: 1px solid #333a42;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 12px;
+        max-width: 90vw;
+        flex-wrap: wrap;
+      }
+      #robot-config-panel input { cursor: text; width: 90px; }
+      #robot-config-panel #rc-active { color: #9aa1ab; font-size: 11px; }
+      #robot-config-panel .error { flex-basis: 100%; }
 
       #connection-banner {
         position: absolute;
@@ -101,6 +124,7 @@
     <div id="app"></div>
     <div id="hud">
       <div id="connection-banner" hidden></div>
+      <div id="robot-config-panel"></div>
       <div id="status-panel"></div>
       <div id="sequence-panel"></div>
     </div>

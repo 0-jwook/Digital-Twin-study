@@ -39,14 +39,38 @@ class StateSnapshot:
     position: dict[str, float]
     ack: bool
     busy: bool
+    config_ack: bool
+    config_active_mode: str
+    config_connection_ok: bool
+    config_error_message: str
+
+
+@dataclass
+class ConfigCommandSnapshot:
+    mode: str
+    host: str
+    port: int
+    max_speed: int
+    apply: bool
 
 
 class PlcOpcuaServer:
-    def __init__(self, endpoint: str = DEFAULT_ENDPOINT) -> None:
+    def __init__(
+        self,
+        endpoint: str = DEFAULT_ENDPOINT,
+        initial_mode: str = "virtual",
+        initial_host: str = "",
+        initial_port: int = 9000,
+        initial_max_speed: int = 30,
+    ) -> None:
         self.endpoint = endpoint
         self.server = Server()
         self.nsidx: int | None = None
         self.nodes: dict[str, "ua.uaprotocol_auto.Node"] = {}
+        self._initial_mode = initial_mode
+        self._initial_host = initial_host
+        self._initial_port = initial_port
+        self._initial_max_speed = initial_max_speed
 
     def _nid(self, path: str) -> ua.NodeId:
         return ua.NodeId(path, self.nsidx)
@@ -128,6 +152,39 @@ class PlcOpcuaServer:
             self._nid("Robot.State.RobotConnected"), "RobotConnected", True
         )
 
+        # Config (Backend -> PLC: Mode/Host/Port/MaxSpeed/Apply are writable
+        # requests; ActiveMode/ConnectionOk/ErrorMessage/Ack are PLC -> Backend
+        # state -- same split as Command, never mixed).
+        config = await robot.add_object(self._nid("Robot.Config"), "Config")
+        self.nodes["config.mode"] = await config.add_variable(
+            self._nid("Robot.Config.Mode"), "Mode", self._initial_mode
+        )
+        self.nodes["config.host"] = await config.add_variable(
+            self._nid("Robot.Config.Host"), "Host", self._initial_host
+        )
+        self.nodes["config.port"] = await config.add_variable(
+            self._nid("Robot.Config.Port"), "Port", self._initial_port, ua.VariantType.Int32
+        )
+        self.nodes["config.max_speed"] = await config.add_variable(
+            self._nid("Robot.Config.MaxSpeed"), "MaxSpeed", self._initial_max_speed, ua.VariantType.Int32
+        )
+        self.nodes["config.apply"] = await config.add_variable(
+            self._nid("Robot.Config.Apply"), "Apply", False
+        )
+        for key in ("config.mode", "config.host", "config.port", "config.max_speed", "config.apply"):
+            await self.nodes[key].set_writable()
+
+        self.nodes["config.ack"] = await config.add_variable(self._nid("Robot.Config.Ack"), "Ack", False)
+        self.nodes["config.active_mode"] = await config.add_variable(
+            self._nid("Robot.Config.ActiveMode"), "ActiveMode", self._initial_mode
+        )
+        self.nodes["config.connection_ok"] = await config.add_variable(
+            self._nid("Robot.Config.ConnectionOk"), "ConnectionOk", True
+        )
+        self.nodes["config.error_message"] = await config.add_variable(
+            self._nid("Robot.Config.ErrorMessage"), "ErrorMessage", ""
+        )
+
     async def write_catalog_json(self, catalog_json: str) -> None:
         await self.nodes["sequence.catalog_json"].write_value(catalog_json)
 
@@ -153,6 +210,15 @@ class PlcOpcuaServer:
             reset=await self.nodes["command.reset"].read_value(),
         )
 
+    async def read_config_memory(self) -> ConfigCommandSnapshot:
+        return ConfigCommandSnapshot(
+            mode=await self.nodes["config.mode"].read_value(),
+            host=await self.nodes["config.host"].read_value(),
+            port=await self.nodes["config.port"].read_value(),
+            max_speed=await self.nodes["config.max_speed"].read_value(),
+            apply=await self.nodes["config.apply"].read_value(),
+        )
+
     async def write_state_nodes(self, snapshot: StateSnapshot) -> None:
         await self.nodes["state.status"].write_value(snapshot.status, ua.VariantType.Int32)
         await self.nodes["state.error_code"].write_value(snapshot.error_code, ua.VariantType.Int32)
@@ -172,3 +238,8 @@ class PlcOpcuaServer:
 
         await self.nodes["command.ack"].write_value(snapshot.ack)
         await self.nodes["command.busy"].write_value(snapshot.busy)
+
+        await self.nodes["config.ack"].write_value(snapshot.config_ack)
+        await self.nodes["config.active_mode"].write_value(snapshot.config_active_mode)
+        await self.nodes["config.connection_ok"].write_value(snapshot.config_connection_ok)
+        await self.nodes["config.error_message"].write_value(snapshot.config_error_message)

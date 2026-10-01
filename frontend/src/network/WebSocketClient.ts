@@ -7,8 +7,19 @@ import { connectionStore } from "./ConnectionStore";
 import { PositionBuffer } from "./PositionBuffer";
 import { plcStateStore } from "../plc/PlcStateStore";
 import { sequenceStateStore } from "../plc/SequenceStateStore";
+import { robotConfigStore } from "../robot/RobotConfigStore";
 
 const RECONNECT_DELAY_MS = 2000;
+
+type RobotConfigFields = {
+  mode: string;
+  host: string;
+  port: number;
+  maxSpeed: number;
+  activeMode: string;
+  connectionOk: boolean;
+  errorMessage: string | null;
+};
 
 type ServerMessage =
   | { type: "position"; j1: number; j2: number; j3: number; j4: number; j5: number; j6: number; t: number }
@@ -22,12 +33,14 @@ type ServerMessage =
       done: boolean;
     }
   | { type: "connection_status"; connected: boolean; lastSeen: string | null }
+  | ({ type: "robot_config" } & RobotConfigFields)
   | {
       type: "full_status";
       plc: { status: string; errorCode: number; errorMessage: string | null; robotConnected: boolean };
       sequence: { sequenceId: number; currentStep: number; totalSteps: number; running: boolean; done: boolean };
       position: { j1: number; j2: number; j3: number; j4: number; j5: number; j6: number };
       connection: { connected: boolean; lastSeen: string | null };
+      robotConfig: RobotConfigFields;
     };
 
 export class WebSocketClient {
@@ -91,10 +104,22 @@ export class WebSocketClient {
       case "connection_status":
         connectionStore.set({ connected: message.connected, lastSeen: message.lastSeen });
         break;
+      case "robot_config":
+        robotConfigStore.set({
+          mode: message.mode,
+          host: message.host,
+          port: message.port,
+          maxSpeed: message.maxSpeed,
+          activeMode: message.activeMode,
+          connectionOk: message.connectionOk,
+          errorMessage: message.errorMessage,
+        });
+        break;
       case "full_status":
         plcStateStore.set(message.plc);
         sequenceStateStore.set(message.sequence);
         connectionStore.set(message.connection);
+        robotConfigStore.set(message.robotConfig);
         this.positionBuffer.push(message.position);
         break;
     }

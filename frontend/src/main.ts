@@ -8,10 +8,13 @@ import { plcStateStore } from "./plc/PlcStateStore";
 import { sequenceStateStore } from "./plc/SequenceStateStore";
 import { mountStatusPanel } from "./plc/StatusPanel";
 import { mountSequencePanel } from "./sequence/SequencePanel";
+import { mountRobotConfigPanel } from "./robot/RobotConfigPanel";
+import { robotConfigStore } from "./robot/RobotConfigStore";
 
 const appContainer = document.getElementById("app")!;
 const statusContainer = document.getElementById("status-panel")!;
 const sequenceContainer = document.getElementById("sequence-panel")!;
+const robotConfigContainer = document.getElementById("robot-config-panel")!;
 const connectionBanner = document.getElementById("connection-banner")!;
 
 connectionStore.subscribe((state) => {
@@ -30,6 +33,7 @@ const positionBuffer = new PositionBuffer();
 
 const statusPanel = mountStatusPanel(statusContainer);
 void mountSequencePanel(sequenceContainer);
+void mountRobotConfigPanel(robotConfigContainer);
 
 robotModel.load(sceneManager.scene, () => {
   console.log("myCobot 280 Pi model loaded");
@@ -45,6 +49,7 @@ RestClient.getStatus()
     plcStateStore.set(status.plc);
     sequenceStateStore.set(status.sequence);
     connectionStore.set(status.connection);
+    robotConfigStore.set(status.robotConfig);
     positionBuffer.push(status.position);
   })
   .catch(() => {

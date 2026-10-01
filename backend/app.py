@@ -15,6 +15,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from .api.routes import router
 from .opcua.supervisor import ConnectionSupervisor
 from .state.connection_state import ConnectionStateModel
+from .state.robot_config_state import RobotConfigState
 from .state.robot_state import RobotStateModel
 from .state.sequence_state import SequenceStateModel
 from .websocket.manager import WebSocketManager
@@ -23,6 +24,7 @@ from .websocket.messages import (
     full_status_message,
     plc_state_message,
     position_message,
+    robot_config_message,
     sequence_state_message,
 )
 
@@ -33,6 +35,7 @@ def _make_on_change(
     robot_state: RobotStateModel,
     sequence_state: SequenceStateModel,
     connection_state: ConnectionStateModel,
+    robot_config_state: RobotConfigState,
     ws_manager: WebSocketManager,
 ):
     async def on_change(path: str, value: object) -> None:
@@ -67,7 +70,28 @@ def _make_on_change(
         elif path == "Robot.Sequence.Done":
             sequence_state.done = value
             await ws_manager.broadcast(sequence_state_message(sequence_state))
-        # Command.Ack / Command.Busy are handled internally by PlcOpcuaClient.
+        elif path == "Robot.Config.Mode":
+            robot_config_state.mode = value
+            await ws_manager.broadcast(robot_config_message(robot_config_state))
+        elif path == "Robot.Config.Host":
+            robot_config_state.host = value
+            await ws_manager.broadcast(robot_config_message(robot_config_state))
+        elif path == "Robot.Config.Port":
+            robot_config_state.port = value
+            await ws_manager.broadcast(robot_config_message(robot_config_state))
+        elif path == "Robot.Config.MaxSpeed":
+            robot_config_state.max_speed = value
+            await ws_manager.broadcast(robot_config_message(robot_config_state))
+        elif path == "Robot.Config.ActiveMode":
+            robot_config_state.active_mode = value
+            await ws_manager.broadcast(robot_config_message(robot_config_state))
+        elif path == "Robot.Config.ConnectionOk":
+            robot_config_state.connection_ok = value
+            await ws_manager.broadcast(robot_config_message(robot_config_state))
+        elif path == "Robot.Config.ErrorMessage":
+            robot_config_state.error_message = value
+            await ws_manager.broadcast(robot_config_message(robot_config_state))
+        # Command.Ack / Command.Busy / Config.Ack are handled internally by PlcOpcuaClient.
         connection_state.mark_seen()
 
     return on_change
@@ -78,6 +102,7 @@ async def lifespan(app: FastAPI):
     robot_state = RobotStateModel()
     sequence_state = SequenceStateModel()
     connection_state = ConnectionStateModel()
+    robot_config_state = RobotConfigState()
     ws_manager = WebSocketManager()
 
     # Subscription publish interval must be at or below the PLC's own scan
@@ -91,14 +116,16 @@ async def lifespan(app: FastAPI):
         robot_state,
         sequence_state,
         connection_state,
+        robot_config_state,
         ws_manager,
-        _make_on_change(robot_state, sequence_state, connection_state, ws_manager),
+        _make_on_change(robot_state, sequence_state, connection_state, robot_config_state, ws_manager),
     )
     await supervisor.start()
 
     app.state.robot_state = robot_state
     app.state.sequence_state = sequence_state
     app.state.connection_state = connection_state
+    app.state.robot_config_state = robot_config_state
     app.state.ws_manager = ws_manager
     app.state.supervisor = supervisor
 
@@ -122,9 +149,12 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     robot_state: RobotStateModel = websocket.app.state.robot_state
     sequence_state: SequenceStateModel = websocket.app.state.sequence_state
     connection_state: ConnectionStateModel = websocket.app.state.connection_state
+    robot_config_state: RobotConfigState = websocket.app.state.robot_config_state
 
     await ws_manager.connect(websocket)
-    await ws_manager.send_to(websocket, full_status_message(robot_state, sequence_state, connection_state))
+    await ws_manager.send_to(
+        websocket, full_status_message(robot_state, sequence_state, connection_state, robot_config_state)
+    )
 
     try:
         while True:

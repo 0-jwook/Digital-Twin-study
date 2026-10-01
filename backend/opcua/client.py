@@ -21,10 +21,22 @@ class CommandInFlightError(RuntimeError):
 class CommandTimeoutError(RuntimeError):
     """Raised when the PLC does not Ack (or clear Ack) within the timeout."""
 
+
+class ConfigInFlightError(RuntimeError):
+    """Raised when a new Robot Config apply is requested while a previous
+    one's Ack handshake has not fully completed yet."""
+
+
+class ConfigTimeoutError(RuntimeError):
+    """Raised when the PLC does not Ack (or clear Ack) a Config apply within
+    the timeout."""
+
+
 NAMESPACE_URI = "urn:digitaltwin:mycobot:plc"
 
 # Nodes the Backend subscribes to (everything under State/Sequence/Position
-# plus the command handshake pair, excluding the poll-only CatalogJson).
+# plus the command and config handshake pairs, excluding the poll-only
+# CatalogJson).
 SUBSCRIBED_PATHS = (
     "Robot.State.Status",
     "Robot.State.ErrorCode",
@@ -43,6 +55,14 @@ SUBSCRIBED_PATHS = (
     "Robot.Position.J6",
     "Robot.Command.Ack",
     "Robot.Command.Busy",
+    "Robot.Config.Mode",
+    "Robot.Config.Host",
+    "Robot.Config.Port",
+    "Robot.Config.MaxSpeed",
+    "Robot.Config.Ack",
+    "Robot.Config.ActiveMode",
+    "Robot.Config.ConnectionOk",
+    "Robot.Config.ErrorMessage",
 )
 
 DataChangeHandler = Callable[[str, object], Awaitable[None] | None]
@@ -67,6 +87,9 @@ class PlcOpcuaClient:
         self._command_lock = asyncio.Lock()
         self._ack_event = asyncio.Event()
         self._last_ack = False
+        self._config_lock = asyncio.Lock()
+        self._config_ack_event = asyncio.Event()
+        self._last_config_ack = False
 
     async def connect(self) -> None:
         await self.client.connect()
@@ -101,6 +124,9 @@ class PlcOpcuaClient:
             if path == "Robot.Command.Ack":
                 self._last_ack = bool(value)
                 self._ack_event.set()
+            elif path == "Robot.Config.Ack":
+                self._last_config_ack = bool(value)
+                self._config_ack_event.set()
             result = on_change(path, value)
             if inspect.isawaitable(result):
                 await result
@@ -140,3 +166,35 @@ class PlcOpcuaClient:
                 await asyncio.wait_for(self._ack_event.wait(), timeout=remaining)
             except asyncio.TimeoutError as exc:
                 raise CommandTimeoutError(f"Timed out waiting for Command.Ack == {expected}") from exc
+
+    async def write_config_apply(
+        self, mode: str, host: str, port: int, max_speed: int, timeout: float = 10.0
+    ) -> None:
+        """Drive the Robot.Config.* Ack handshake. A longer default timeout
+        than write_command() -- connecting to a real robot over the network
+        can legitimately take a few seconds, especially when it fails."""
+        if self._config_lock.locked():
+            raise ConfigInFlightError("A Robot Config apply is already in progress")
+        async with self._config_lock:
+            await self.write("Robot.Config.Mode", mode)
+            await self.write("Robot.Config.Host", host)
+            await self.write("Robot.Config.Port", port, ua.VariantType.Int32)
+            await self.write("Robot.Config.MaxSpeed", max_speed, ua.VariantType.Int32)
+            self._config_ack_event.clear()
+            await self.write("Robot.Config.Apply", True)
+            await self._wait_for_config_ack(True, timeout)
+            await self.write("Robot.Config.Apply", False)
+            await self._wait_for_config_ack(False, timeout)
+
+    async def _wait_for_config_ack(self, expected: bool, timeout: float) -> None:
+        loop = asyncio.get_event_loop()
+        deadline = loop.time() + timeout
+        while self._last_config_ack != expected:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                raise ConfigTimeoutError(f"Timed out waiting for Config.Ack == {expected}")
+            self._config_ack_event.clear()
+            try:
+                await asyncio.wait_for(self._config_ack_event.wait(), timeout=remaining)
+            except asyncio.TimeoutError as exc:
+                raise ConfigTimeoutError(f"Timed out waiting for Config.Ack == {expected}") from exc

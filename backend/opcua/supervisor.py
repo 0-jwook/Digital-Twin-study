@@ -17,6 +17,7 @@ from typing import Awaitable, Callable
 
 from .client import PlcOpcuaClient
 from ..state.connection_state import ConnectionStateModel
+from ..state.robot_config_state import RobotConfigState
 from ..state.robot_state import RobotStateModel
 from ..state.sequence_catalog import SequenceCatalog
 from ..state.sequence_state import SequenceStateModel
@@ -38,6 +39,7 @@ class ConnectionSupervisor:
         robot_state: RobotStateModel,
         sequence_state: SequenceStateModel,
         connection_state: ConnectionStateModel,
+        robot_config_state: RobotConfigState,
         ws_manager: WebSocketManager,
         on_change: OnChange,
         client_factory: Callable[[str], PlcOpcuaClient] = PlcOpcuaClient,
@@ -46,6 +48,7 @@ class ConnectionSupervisor:
         self._robot_state = robot_state
         self._sequence_state = sequence_state
         self._connection_state = connection_state
+        self._robot_config_state = robot_config_state
         self._ws_manager = ws_manager
         self._on_change = on_change
         self._client_factory = client_factory
@@ -102,7 +105,9 @@ class ConnectionSupervisor:
 
             self._connection_state.mark_seen()
             await self._ws_manager.broadcast(
-                full_status_message(self._robot_state, self._sequence_state, self._connection_state)
+                full_status_message(
+                    self._robot_state, self._sequence_state, self._connection_state, self._robot_config_state
+                )
             )
             await self._ws_manager.broadcast(connection_status_message(self._connection_state))
             log.info("Reconnected to Virtual PLC OPC UA server")
@@ -124,3 +129,11 @@ class ConnectionSupervisor:
         self._sequence_state.total_steps = await client.read("Robot.Sequence.TotalSteps")
         self._sequence_state.running = await client.read("Robot.Sequence.Running")
         self._sequence_state.done = await client.read("Robot.Sequence.Done")
+
+        self._robot_config_state.mode = await client.read("Robot.Config.Mode")
+        self._robot_config_state.host = await client.read("Robot.Config.Host")
+        self._robot_config_state.port = await client.read("Robot.Config.Port")
+        self._robot_config_state.max_speed = await client.read("Robot.Config.MaxSpeed")
+        self._robot_config_state.active_mode = await client.read("Robot.Config.ActiveMode")
+        self._robot_config_state.connection_ok = await client.read("Robot.Config.ConnectionOk")
+        self._robot_config_state.error_message = await client.read("Robot.Config.ErrorMessage")

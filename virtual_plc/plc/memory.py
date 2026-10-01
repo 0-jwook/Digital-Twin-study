@@ -54,8 +54,28 @@ class PositionMemory:
 
 
 @dataclass
+class ConfigMemory:
+    """Desired vs. actually-applied Robot Interface configuration
+    (docs/opcua-nodes.md Robot.Config.*). `mode`/`host`/`port`/`max_speed`
+    are the requested values Backend writes; `active_*` are what's really
+    running right now -- never merged, same split as Command/Sequence."""
+
+    mode: str = "virtual"
+    host: str = ""
+    port: int = 9000
+    max_speed: int = 30
+    apply: bool = False
+    prev_apply: bool = False
+    ack: bool = False
+    active_mode: str = "virtual"
+    connection_ok: bool = True
+    error_message: str = ""
+
+
+@dataclass
 class PLCMemory:
     command: CommandMemory = field(default_factory=CommandMemory)
     state: StateMemory = field(default_factory=StateMemory)
     sequence: SequenceMemory = field(default_factory=SequenceMemory)
     position: PositionMemory = field(default_factory=PositionMemory)
+    config: ConfigMemory = field(default_factory=ConfigMemory)

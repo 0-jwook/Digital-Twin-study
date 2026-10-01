@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 
 from backend.state.connection_state import ConnectionStateModel
+from backend.state.robot_config_state import RobotConfigState
 from backend.state.robot_state import RobotStateModel
 from backend.state.sequence_state import SequenceStateModel
 from backend.websocket.manager import POSITION_MIN_INTERVAL_SECONDS, WebSocketManager
@@ -99,11 +100,14 @@ def test_full_status_message_shape():
     sequence_state = SequenceStateModel(sequence_id=1, current_step=2, total_steps=7, running=True, done=False)
     connection_state = ConnectionStateModel()
     connection_state.mark_seen()
+    robot_config_state = RobotConfigState(mode="real", active_mode="virtual")
 
-    message = full_status_message(robot_state, sequence_state, connection_state)
+    message = full_status_message(robot_state, sequence_state, connection_state, robot_config_state)
 
     assert message["type"] == "full_status"
     assert message["plc"]["status"] == "RUNNING"
     assert message["sequence"]["currentStep"] == 2
     assert message["position"]["j1"] == 12.5
     assert message["connection"]["connected"] is True
+    assert message["robotConfig"]["mode"] == "real"
+    assert message["robotConfig"]["activeMode"] == "virtual"

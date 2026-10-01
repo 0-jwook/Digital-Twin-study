@@ -13,6 +13,8 @@ from ..models.dto import (
     ConnectionDto,
     PlcStatusDto,
     PositionDto,
+    RobotConfigRequest,
+    RobotConfigResponse,
     SequenceDetail,
     SequenceStateDto,
     SequenceStepDto,
@@ -20,8 +22,15 @@ from ..models.dto import (
     StartSequenceRequest,
     StatusResponse,
 )
-from ..opcua.client import CommandInFlightError, CommandTimeoutError, PlcOpcuaClient
+from ..opcua.client import (
+    CommandInFlightError,
+    CommandTimeoutError,
+    ConfigInFlightError,
+    ConfigTimeoutError,
+    PlcOpcuaClient,
+)
 from ..state.connection_state import ConnectionStateModel
+from ..state.robot_config_state import RobotConfigState
 from ..state.robot_state import RobotStateModel
 from ..state.sequence_catalog import SequenceCatalog
 from ..state.sequence_state import SequenceStateModel
@@ -39,6 +48,10 @@ def get_sequence_state(request: Request) -> SequenceStateModel:
 
 def get_connection_state(request: Request) -> ConnectionStateModel:
     return request.app.state.connection_state
+
+
+def get_robot_config_state(request: Request) -> RobotConfigState:
+    return request.app.state.robot_config_state
 
 
 def get_opcua_client(request: Request) -> PlcOpcuaClient:
@@ -140,6 +153,7 @@ async def get_status(
     robot_state: RobotStateModel = Depends(get_robot_state),
     sequence_state: SequenceStateModel = Depends(get_sequence_state),
     connection_state: ConnectionStateModel = Depends(get_connection_state),
+    config_state: RobotConfigState = Depends(get_robot_config_state),
 ):
     return StatusResponse(
         plc=PlcStatusDto(
@@ -160,4 +174,50 @@ async def get_status(
             connected=connection_state.connected,
             lastSeen=connection_state.last_seen.isoformat() if connection_state.last_seen else None,
         ),
+        robotConfig=RobotConfigResponse(
+            mode=config_state.mode,
+            host=config_state.host,
+            port=config_state.port,
+            maxSpeed=config_state.max_speed,
+            activeMode=config_state.active_mode,
+            connectionOk=config_state.connection_ok,
+            errorMessage=config_state.error_message or None,
+        ),
     )
+
+
+@router.get("/robot-config", response_model=RobotConfigResponse)
+async def get_robot_config(config_state: RobotConfigState = Depends(get_robot_config_state)):
+    return RobotConfigResponse(
+        mode=config_state.mode,
+        host=config_state.host,
+        port=config_state.port,
+        maxSpeed=config_state.max_speed,
+        activeMode=config_state.active_mode,
+        connectionOk=config_state.connection_ok,
+        errorMessage=config_state.error_message or None,
+    )
+
+
+@router.post("/robot-config", response_model=AcceptedResponse, status_code=202)
+async def apply_robot_config(
+    body: RobotConfigRequest,
+    robot_state: RobotStateModel = Depends(get_robot_state),
+    connection_state: ConnectionStateModel = Depends(get_connection_state),
+    client: PlcOpcuaClient = Depends(get_opcua_client),
+):
+    if not connection_state.connected:
+        raise HTTPException(status_code=503, detail="OPC UA connection to Virtual PLC is down")
+    if body.mode == "real" and not body.host:
+        raise HTTPException(status_code=400, detail="mode='real' requires a host")
+    if robot_state.status_name != "IDLE":
+        raise HTTPException(status_code=409, detail=f"PLC is not IDLE (current: {robot_state.status_name})")
+
+    try:
+        await client.write_config_apply(body.mode, body.host, body.port, body.maxSpeed)
+    except ConfigInFlightError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ConfigTimeoutError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return AcceptedResponse()

@@ -6,6 +6,7 @@ from __future__ import annotations
 import time
 
 from ..state.connection_state import ConnectionStateModel
+from ..state.robot_config_state import RobotConfigState
 from ..state.robot_state import RobotStateModel
 from ..state.sequence_state import SequenceStateModel
 
@@ -36,6 +37,18 @@ def _connection_fields(connection_state: ConnectionStateModel) -> dict:
     }
 
 
+def _robot_config_fields(robot_config_state: RobotConfigState) -> dict:
+    return {
+        "mode": robot_config_state.mode,
+        "host": robot_config_state.host,
+        "port": robot_config_state.port,
+        "maxSpeed": robot_config_state.max_speed,
+        "activeMode": robot_config_state.active_mode,
+        "connectionOk": robot_config_state.connection_ok,
+        "errorMessage": robot_config_state.error_message or None,
+    }
+
+
 def position_message(robot_state: RobotStateModel) -> dict:
     return {"type": "position", **robot_state.position, "t": int(time.time() * 1000)}
 
@@ -52,10 +65,15 @@ def connection_status_message(connection_state: ConnectionStateModel) -> dict:
     return {"type": "connection_status", **_connection_fields(connection_state)}
 
 
+def robot_config_message(robot_config_state: RobotConfigState) -> dict:
+    return {"type": "robot_config", **_robot_config_fields(robot_config_state)}
+
+
 def full_status_message(
     robot_state: RobotStateModel,
     sequence_state: SequenceStateModel,
     connection_state: ConnectionStateModel,
+    robot_config_state: RobotConfigState,
 ) -> dict:
     return {
         "type": "full_status",
@@ -63,4 +81,5 @@ def full_status_message(
         "sequence": _sequence_state_fields(sequence_state),
         "position": dict(robot_state.position),
         "connection": _connection_fields(connection_state),
+        "robotConfig": _robot_config_fields(robot_config_state),
     }

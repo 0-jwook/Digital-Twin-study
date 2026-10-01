@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -59,8 +61,26 @@ class ConnectionDto(BaseModel):
     lastSeen: str | None
 
 
+class RobotConfigResponse(BaseModel):
+    mode: str
+    host: str
+    port: int
+    maxSpeed: int
+    activeMode: str
+    connectionOk: bool
+    errorMessage: str | None
+
+
 class StatusResponse(BaseModel):
     plc: PlcStatusDto
     sequence: SequenceStateDto
     position: PositionDto
     connection: ConnectionDto
+    robotConfig: RobotConfigResponse
+
+
+class RobotConfigRequest(BaseModel):
+    mode: Literal["virtual", "real"]
+    host: str = ""
+    port: int = 9000
+    maxSpeed: int = 30

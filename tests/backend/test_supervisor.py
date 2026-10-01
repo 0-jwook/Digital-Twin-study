@@ -12,6 +12,7 @@ import pytest
 from backend.opcua import supervisor as supervisor_module
 from backend.opcua.supervisor import ConnectionSupervisor
 from backend.state.connection_state import ConnectionStateModel
+from backend.state.robot_config_state import RobotConfigState
 from backend.state.robot_state import RobotStateModel
 from backend.state.sequence_state import SequenceStateModel
 from backend.websocket.manager import WebSocketManager
@@ -32,6 +33,13 @@ DEFAULT_VALUES = {
     "Robot.Sequence.TotalSteps": 0,
     "Robot.Sequence.Running": False,
     "Robot.Sequence.Done": False,
+    "Robot.Config.Mode": "virtual",
+    "Robot.Config.Host": "",
+    "Robot.Config.Port": 9000,
+    "Robot.Config.MaxSpeed": 30,
+    "Robot.Config.ActiveMode": "virtual",
+    "Robot.Config.ConnectionOk": True,
+    "Robot.Config.ErrorMessage": "",
 }
 
 
@@ -80,6 +88,7 @@ async def setup():
     robot_state = RobotStateModel()
     sequence_state = SequenceStateModel()
     connection_state = ConnectionStateModel()
+    robot_config_state = RobotConfigState()
     ws_manager = WebSocketManager()
     ws = FakeWebSocket()
     await ws_manager.connect(ws)
@@ -99,6 +108,7 @@ async def setup():
         robot_state,
         sequence_state,
         connection_state,
+        robot_config_state,
         ws_manager,
         on_change,
         client_factory=lambda endpoint: FakeSupervisedClient(endpoint, registry),
@@ -109,6 +119,7 @@ async def setup():
         "robot_state": robot_state,
         "sequence_state": sequence_state,
         "connection_state": connection_state,
+        "robot_config_state": robot_config_state,
         "ws": ws,
     }
 
@@ -129,6 +140,7 @@ async def test_reconnect_loop_recovers_after_transient_failures_and_resyncs(setu
     connection_state = setup["connection_state"]
     robot_state = setup["robot_state"]
     sequence_state = setup["sequence_state"]
+    robot_config_state = setup["robot_config_state"]
     ws = setup["ws"]
 
     await supervisor.start()
@@ -148,6 +160,9 @@ async def test_reconnect_loop_recovers_after_transient_failures_and_resyncs(setu
     registry["values"]["Robot.State.Status"] = 1  # RUNNING
     registry["values"]["Robot.Sequence.CurrentSequenceId"] = 1
     registry["values"]["Robot.Sequence.Running"] = True
+    registry["values"]["Robot.Config.ActiveMode"] = "real"
+    registry["values"]["Robot.Config.ConnectionOk"] = False
+    registry["values"]["Robot.Config.ErrorMessage"] = "connect() failed"
 
     await asyncio.wait_for(supervisor._reconnect_loop(), timeout=2.0)
 
@@ -156,6 +171,9 @@ async def test_reconnect_loop_recovers_after_transient_failures_and_resyncs(setu
     assert robot_state.status == 1
     assert sequence_state.sequence_id == 1
     assert sequence_state.running is True
+    assert robot_config_state.active_mode == "real"
+    assert robot_config_state.connection_ok is False
+    assert robot_config_state.error_message == "connect() failed"
 
     message_types = [m["type"] for m in ws.sent]
     assert message_types[0] == "connection_status"

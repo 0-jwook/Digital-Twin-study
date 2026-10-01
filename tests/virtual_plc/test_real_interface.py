@@ -74,6 +74,22 @@ def test_connect_failure_marks_disconnected():
     assert robot.is_connected() is False
 
 
+def test_connect_does_not_raise_when_pymycobot_is_not_installed(monkeypatch):
+    """Regression test: pymycobot is deliberately not in virtual_plc's
+    default requirements.txt (see requirements-real.txt). Remove this test
+    file's autouse fake and `import pymycobot` genuinely raises
+    ModuleNotFoundError, same as it would in a real "virtual-only" install.
+    connect() must degrade to is_connected()=False like any other comms
+    failure, not crash the whole scan loop -- this exact bug once took down
+    a live virtual_plc process when real mode was selected without
+    pymycobot installed."""
+    monkeypatch.delitem(sys.modules, "pymycobot", raising=False)
+
+    robot = RealMycobotInterface("10.0.0.5")
+    assert robot.connect() is False  # must not raise
+    assert robot.is_connected() is False
+
+
 def test_move_to_clamps_speed_and_converts_dict_to_ordered_list():
     robot = RealMycobotInterface("10.0.0.5", max_speed=30)
     robot.connect()

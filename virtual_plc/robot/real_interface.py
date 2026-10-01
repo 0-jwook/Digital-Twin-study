@@ -30,9 +30,14 @@ class RealMycobotInterface:
         self._last_known_pose = {j: 0.0 for j in JOINTS}
 
     def connect(self) -> bool:
-        from pymycobot import MyCobot280Socket  # imported here so "virtual" mode never needs pymycobot installed
-
         try:
+            # Imported here (not at module level) so "virtual" mode never
+            # needs pymycobot installed -- and inside the try, not before
+            # it, since a missing pymycobot install must degrade to
+            # is_connected()=False like any other comms failure, not crash
+            # the whole scan loop.
+            from pymycobot import MyCobot280Socket
+
             self._mc = MyCobot280Socket(self._host, self._port)
             self._mc.get_angles()  # one round trip to confirm Server_280.py is actually reachable
             self._connected = True

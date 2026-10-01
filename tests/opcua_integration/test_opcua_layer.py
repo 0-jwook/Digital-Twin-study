@@ -50,6 +50,10 @@ async def test_default_values_match_spec(client):
     assert await client.read("Robot.Position.J1") == 0.0
     assert await client.read("Robot.Command.Ack") is False
     assert await client.read("Robot.Sequence.CatalogJson") == "[]"
+    assert await client.read("Robot.Config.Mode") == "virtual"
+    assert await client.read("Robot.Config.ActiveMode") == "virtual"
+    assert await client.read("Robot.Config.Port") == 9000
+    assert await client.read("Robot.Config.ConnectionOk") is True
 
 
 async def test_command_node_write_and_read_back(client):
@@ -81,6 +85,10 @@ async def test_subscription_receives_state_change(server, client):
         position={"j1": 10.0, "j2": 0.0, "j3": 0.0, "j4": 0.0, "j5": 0.0, "j6": 0.0},
         ack=True,
         busy=True,
+        config_ack=False,
+        config_active_mode="virtual",
+        config_connection_ok=True,
+        config_error_message="",
     )
     await server.write_state_nodes(snapshot)
 
